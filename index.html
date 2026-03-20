@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>MindMark — Markdown to Mind Map</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',PingFang SC,sans-serif;background:#f5f5f5;display:flex;flex-direction:column}
+
+header{display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:46px;background:#fff;border-bottom:1px solid #eee;flex-shrink:0}
+.logo{display:flex;align-items:center;gap:8px}
+.logo h1{font-size:15px;font-weight:600;color:#111;letter-spacing:.3px}
+.logo span{font-size:11px;color:#bbb;margin-left:2px}
+.hbtns{display:flex;gap:6px}
+.hbtn{height:28px;padding:0 12px;border:1px solid #ddd;border-radius:4px;background:#fff;font-size:12px;color:#555;cursor:pointer;transition:all .15s}
+.hbtn:hover{border-color:#4096ff;color:#4096ff}
+.hbtn-p{background:#4096ff;border-color:#4096ff;color:#fff}
+.hbtn-p:hover{background:#2277ee;border-color:#2277ee}
+
+.main{display:flex;flex:1;overflow:hidden}
+
+.ep{width:38%;min-width:240px;background:#1e1e1e;display:flex;flex-direction:column;border-right:1px solid #2a2a2a}
+.ep-head{display:flex;align-items:center;justify-content:space-between;padding:6px 12px;background:#252525;border-bottom:1px solid #2a2a2a;flex-shrink:0}
+.ep-title{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555;font-weight:600}
+.ep-btns{display:flex;gap:2px}
+.tbtn{background:none;border:none;cursor:pointer;color:#555;padding:2px 8px;border-radius:3px;font-size:11px;transition:all .12s}
+.tbtn:hover{background:#333;color:#aaa}
+#editor{flex:1;background:#1e1e1e;color:#d4d4d4;border:none;outline:none;padding:16px;font-family:'Fira Code',Consolas,monospace;font-size:13px;line-height:1.85;resize:none;overflow-y:auto;tab-size:2}
+#editor::placeholder{color:#333}
+.ep-foot{padding:4px 12px;background:#252525;border-top:1px solid #2a2a2a;font-size:10px;color:#444;display:flex;justify-content:space-between;flex-shrink:0}
+
+.divider{width:4px;background:#222;cursor:col-resize;flex-shrink:0;transition:background .15s;z-index:5}
+.divider:hover,.divider.on{background:#4096ff}
+
+.mp{flex:1;background:#fff;display:flex;flex-direction:column;overflow:hidden}
+.mp-head{display:flex;align-items:center;justify-content:space-between;padding:6px 12px;background:#fafafa;border-bottom:1px solid #f0f0f0;flex-shrink:0}
+.mp-title{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#ccc;font-weight:600}
+.mp-btns{display:flex;gap:2px}
+.mbtn{background:none;border:none;cursor:pointer;color:#bbb;padding:2px 8px;border-radius:3px;font-size:11px;transition:all .12s}
+.mbtn:hover{background:#f0f0f0;color:#555}
+.mbtn-dl{color:#4096ff;font-weight:600}
+.mbtn-dl:hover{background:#e6f4ff;color:#2277ee}
+
+#wrap{flex:1;position:relative;overflow:hidden;cursor:grab;background:#fff}
+#wrap.dragging{cursor:grabbing}
+#mm{display:block;position:absolute;top:0;left:0}
+.empty{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none}
+.empty svg{opacity:.12;margin-bottom:12px}
+.empty p{font-size:13px;color:#bbb}
+.empty small{font-size:11px;color:#ccc}
+
+.hist{position:fixed;right:-300px;top:0;width:300px;height:100vh;background:#fff;border-left:1px solid #eee;z-index:200;display:flex;flex-direction:column;transition:right .25s;box-shadow:-4px 0 20px rgba(0,0,0,.07)}
+.hist.open{right:0}
+.hist-hd{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #f5f5f5}
+.hist-hd h3{font-size:13px;color:#333;font-weight:600}
+.hist-list{flex:1;overflow-y:auto;padding:8px}
+.hi{padding:9px 11px;border-radius:5px;cursor:pointer;border:1px solid transparent;margin-bottom:3px;transition:all .12s}
+.hi:hover{background:#f7f7f7;border-color:#e8e8e8}
+.hi.cur{background:#e6f4ff;border-color:#bae0ff}
+.hi-t{font-size:13px;color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
+.hi-m{font-size:11px;color:#bbb}
+.hi-del{float:right;background:none;border:none;color:#ccc;cursor:pointer;font-size:12px;padding:0 3px}
+.hi-del:hover{color:#ff4d4f}
+.hist-empty{text-align:center;color:#ccc;font-size:13px;padding:40px 0}
+
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(10px);background:rgba(0,0,0,.75);color:#fff;padding:7px 16px;border-radius:5px;font-size:12px;opacity:0;pointer-events:none;transition:all .2s;z-index:300}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <circle cx="10" cy="10" r="2.5" fill="#faad14"/>
+      <line x1="10" y1="10" x2="1"  y2="3"  stroke="#52c41a" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="10" y1="10" x2="19" y2="3"  stroke="#1677ff" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="10" y1="10" x2="1"  y2="17" stroke="#722ed1" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="10" y1="10" x2="19" y2="17" stroke="#f5222d" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+    <h1>MindMark</h1>
+    <span>Markdown → Mind Map</span>
+  </div>
+  <div class="hbtns">
+    <button class="hbtn" onclick="newDoc()">+ 新建</button>
+    <button class="hbtn" onclick="toggleHist()">历史记录</button>
+    <button class="hbtn hbtn-p" onclick="saveSnap()">保存</button>
+  </div>
+</header>
+
+<div class="main">
+  <div class="ep" id="ep">
+    <div class="ep-head">
+      <span class="ep-title">Markdown Editor</span>
+      <div class="ep-btns">
+        <button class="tbtn" onclick="clearEd()">清空</button>
+        <button class="tbtn" onclick="copyEd()">复制</button>
+      </div>
+    </div>
+    <textarea id="editor" placeholder="# 标题（根节点）&#10;&#10;## 一级分支&#10;### 二级节点&#10;- 列表项&#10;  - 子项"></textarea>
+    <div class="ep-foot">
+      <span id="cc">0 字符</span><span id="lc">0 行</span>
+    </div>
+  </div>
+
+  <div class="divider" id="divider"></div>
+
+  <div class="mp">
+    <div class="mp-head">
+      <span class="mp-title">Mind Map</span>
+      <div class="mp-btns">
+        <button class="mbtn" onclick="fit()">适配</button>
+        <button class="mbtn" onclick="doZoom(1.2)">+</button>
+        <button class="mbtn" onclick="doZoom(1/1.2)">−</button>
+        <button class="mbtn mbtn-dl" onclick="saveImg()">↓ 保存图片</button>
+      </div>
+    </div>
+    <div id="wrap">
+      <canvas id="mm"></canvas>
+      <div class="empty" id="eh">
+        <svg width="52" height="52" viewBox="0 0 52 52">
+          <circle cx="26" cy="26" r="5" fill="#ccc"/>
+          <line x1="26" y1="26" x2="6"  y2="10" stroke="#ccc" stroke-width="2" stroke-linecap="round"/>
+          <line x1="26" y1="26" x2="46" y2="10" stroke="#ccc" stroke-width="2" stroke-linecap="round"/>
+          <line x1="26" y1="26" x2="6"  y2="42" stroke="#ccc" stroke-width="2" stroke-linecap="round"/>
+          <line x1="26" y1="26" x2="46" y2="42" stroke="#ccc" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <p>在左侧输入 Markdown</p>
+        <small>思维导图实时生成</small>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="hist" id="hist">
+  <div class="hist-hd">
+    <h3>历史记录</h3>
+    <button class="mbtn" onclick="toggleHist()" style="font-size:14px">✕</button>
+  </div>
+  <div class="hist-list" id="hl"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Palette ────────────────────────────────────────────────
+const PAL = [
+  '#52c41a','#1677ff','#722ed1','#fa8c16',
+  '#eb2f96','#13c2c2','#f5222d','#2f54eb'
+];
+
+// ── Node geometry (underline style) ───────────────────────
+// Each node: text sits above a colored underline, no box
+const FS   = { root:15, l1:13, l2:12, deep:11 };
+const ULH  = 2;      // underline thickness
+const ULG  = 3;      // gap between text baseline and underline
+const ROWG = 20;     // vertical gap between siblings
+const COLG = 64;     // horizontal gap between levels
+
+// ── Storage ────────────────────────────────────────────────
+const SK='mm6', CK='mm6c';
+const db = {
+  get(){try{return JSON.parse(localStorage.getItem(SK))||{};}catch{return{};}},
+  set(id,t,c){const d=this.get();d[id]={id,title:t,content:c,ts:Date.now()};localStorage.setItem(SK,JSON.stringify(d));},
+  del(id){const d=this.get();delete d[id];localStorage.setItem(SK,JSON.stringify(d));},
+  list(){return Object.values(this.get()).sort((a,b)=>b.ts-a.ts);}
+};
+
+// ── Editor ─────────────────────────────────────────────────
+const $=id=>document.getElementById(id);
+const ed=$('editor');
+let curId=null, rtm=null;
+
+ed.addEventListener('input',()=>{stats();go();autoSave();});
+ed.addEventListener('keydown',e=>{
+  if(e.key!=='Tab')return;e.preventDefault();
+  const s=ed.selectionStart;
+  ed.value=ed.value.slice(0,s)+'  '+ed.value.slice(ed.selectionEnd);
+  ed.selectionStart=ed.selectionEnd=s+2;
+});
+function stats(){const v=ed.value;$('cc').textContent=v.length+' 字符';$('lc').textContent=v.split('\n').length+' 行';}
+function clearEd(){if(ed.value&&!confirm('确认清空？'))return;ed.value='';stats();go();}
+function copyEd(){navigator.clipboard.writeText(ed.value).then(()=>tip('已复制'));}
+function newDoc(){curId='d'+Date.now();ed.value='';stats();go();localStorage.setItem(CK,curId);tip('新建');}
+function autoSave(){if(!curId)curId='d'+Date.now();db.set(curId,ed.value.trim().split('\n')[0].replace(/^#+\s*/,'')||'未命名',ed.value);localStorage.setItem(CK,curId);}
+function saveSnap(){autoSave();tip('已保存 ✓');renderHist();}
+
+// ── History ────────────────────────────────────────────────
+function toggleHist(){$('hist').classList.toggle('open');if($('hist').classList.contains('open'))renderHist();}
+function renderHist(){
+  const el=$('hl'),docs=db.list();
+  if(!docs.length){el.innerHTML='<div class="hist-empty">暂无记录</div>';return;}
+  el.innerHTML=docs.map(d=>`<div class="hi${d.id===curId?' cur':''}" onclick="load('${d.id}')">
+    <button class="hi-del" onclick="event.stopPropagation();rm('${d.id}')">✕</button>
+    <div class="hi-t">${xe(d.title)}</div>
+    <div class="hi-m">${ft(d.ts)} · ${d.content.length}字</div>
+  </div>`).join('');
+}
+function load(id){const d=db.get()[id];if(!d)return;curId=id;ed.value=d.content;stats();go();localStorage.setItem(CK,id);toggleHist();tip('已加载');}
+function rm(id){if(!confirm('确认删除？'))return;db.del(id);if(curId===id)curId=null;renderHist();tip('已删除');}
+function xe(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function ft(ts){const d=new Date(ts);return d.toLocaleDateString('zh-CN')+' '+d.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});}
+
+// ── Parse markdown → tree ──────────────────────────────────
+function parse(md){
+  const root={t:'',kids:[],lv:0};
+  let hs=[root],lp=root,ls=[];
+  for(const raw of md.split('\n')){
+    const s=raw.trimEnd();
+    if(!s.trim()){ls=[];continue;}
+    const hm=s.match(/^(#{1,6})\s+(.+)/);
+    if(hm){
+      ls=[];
+      const lv=hm[1].length,t=hm[2].trim();
+      if(lv===1){root.t=t;hs=[root];lp=root;continue;}
+      const n={t,kids:[],lv};
+      while(hs.length>1&&hs[hs.length-1].lv>=lv)hs.pop();
+      hs[hs.length-1].kids.push(n);hs.push(n);lp=n;continue;
+    }
+    const lm=s.match(/^(\s*)([-*+]|\d+\.)\s+(.+)/);
+    if(lm){
+      const ind=lm[1].length,t=lm[3].trim(),n={t,kids:[],lv:99};
+      if(!ls.length)ls=[{n:lp,i:-1}];
+      while(ls.length>1&&ls[ls.length-1].i>=ind)ls.pop();
+      ls[ls.length-1].n.kids.push(n);ls.push({n,i:ind});
+    }
+  }
+  if(!root.t)root.t='思维导图';
+  return root;
+}
+
+// ── Layout ─────────────────────────────────────────────────
+// node fields after layout: tw,th,nw,nh,sh,fs,bold,color,depth
+// node fields after place:  x,y,cx,cy  (cx/cy = center of underline)
+
+function measureW(ctx,t,fs,bold){
+  ctx.font=(bold?'600 ':'400 ')+fs+'px -apple-system,BlinkMacSystemFont,"Segoe UI",PingFang SC,sans-serif';
+  return ctx.measureText(t).width;
+}
+
+function buildLayout(ctx,n,depth,color){
+  const fs = depth===0?FS.root : depth===1?FS.l1 : depth===2?FS.l2 : FS.deep;
+  const bold = depth<=1;
+  n.fs=fs; n.bold=bold; n.color=color; n.depth=depth;
+  n.tw = measureW(ctx,n.t,fs,bold);
+  // node width = text width; height = font size + underline
+  n.nw = n.tw;
+  n.nh = fs + ULG + ULH;   // text height + gap + line
+  if(!n.kids.length){n.sh=n.nh+ROWG;return;}
+  n.kids.forEach((k,i)=>{
+    buildLayout(ctx,k,depth+1,depth===0?PAL[i%PAL.length]:color);
+  });
+  const tot=n.kids.reduce((s,k)=>s+k.sh,0);
+  n.sh=Math.max(tot,n.nh+ROWG);
+}
+
+function placeNodes(n,x,y){
+  // center node vertically within its subtree
+  n.x=x;
+  n.y=y+(n.sh-n.nh)/2;
+  // cx,cy = left edge of underline, y of underline
+  n.ulx=x;
+  n.uly=n.y+n.fs+ULG;   // underline y
+  n.cy=n.uly;             // connection point y (middle of underline)
+  n.cx=x+n.nw/2;          // center x
+  if(!n.kids.length)return;
+  const kx=x+n.nw+COLG;
+  let cy=y;
+  n.kids.forEach(k=>{placeNodes(k,kx,cy);cy+=k.sh;});
+}
+
+// ── Draw ───────────────────────────────────────────────────
+
+function drawTree(ctx,root){
+  // edges first
+  walkEdges(ctx,root);
+  // nodes on top
+  walkNodes(ctx,root);
+}
+
+function walkEdges(ctx,n){
+  n.kids.forEach(k=>{
+    drawEdge(ctx,n,k);
+    walkEdges(ctx,k);
+  });
+}
+function walkNodes(ctx,n){
+  drawNode(ctx,n);
+  n.kids.forEach(k=>walkNodes(ctx,k));
+}
+
+function drawEdge(ctx,p,c){
+  // from right end of parent underline → left end of child underline
+  // S-curve bezier
+  const x1=p.ulx+p.nw, y1=p.uly;
+  const x2=c.ulx,       y2=c.uly;
+  const mx=(x1+x2)/2;
+
+  ctx.beginPath();
+  ctx.moveTo(x1,y1);
+  ctx.bezierCurveTo(mx,y1,mx,y2,x2,y2);
+  ctx.strokeStyle=c.color;
+  ctx.lineWidth = c.depth===1 ? 2 : 1.5;
+  ctx.globalAlpha = c.depth===1 ? 0.9 : 0.65;
+  ctx.lineJoin='round';
+  ctx.lineCap='round';
+  ctx.stroke();
+  ctx.globalAlpha=1;
+}
+
+function drawNode(ctx,n){
+  const {ulx,uly,nw,fs,bold,color,depth,t,cx}=n;
+
+  // Set font
+  ctx.font=(bold?'600 ':'400 ')+fs+'px -apple-system,BlinkMacSystemFont,"Segoe UI",PingFang SC,sans-serif';
+
+  // Draw text above the underline
+  ctx.fillStyle = depth===0 ? '#111' : '#222';
+  ctx.textAlign='left';
+  ctx.textBaseline='alphabetic';
+  ctx.fillText(t, ulx, uly-ULG);  // baseline just above underline
+
+  // Draw underline
+  ctx.beginPath();
+  ctx.moveTo(ulx, uly);
+  ctx.lineTo(ulx+nw, uly);
+  ctx.strokeStyle = depth===0 ? '#333' : color;
+  ctx.lineWidth = depth===0 ? 2 : depth===1 ? 2 : 1.5;
+  ctx.globalAlpha = depth===0 ? 1 : depth===1 ? 1 : 0.8;
+  ctx.lineCap='round';
+  ctx.stroke();
+  ctx.globalAlpha=1;
+}
+
+// ── Viewport ───────────────────────────────────────────────
+let vx=0,vy=0,vz=1,tree=null,bb={w:0,h:0},CW=0,CH=0;
+
+function go(){clearTimeout(rtm);rtm=setTimeout(render,280);}
+
+function render(){
+  const md=ed.value.trim();
+  $('eh').style.display=md?'none':'block';
+  if(!md){tree=null;const c=$('mm');c.width=0;c.height=0;return;}
+
+  const wrap=$('wrap');
+  CW=wrap.clientWidth;CH=wrap.clientHeight;
+  if(!CW||!CH){setTimeout(render,80);return;}
+
+  const dpr=window.devicePixelRatio||1;
+  const c=$('mm');
+  c.width=CW*dpr;c.height=CH*dpr;
+  c.style.width=CW+'px';c.style.height=CH+'px';
+
+  const ctx=c.getContext('2d');
+  ctx.scale(dpr,dpr);
+
+  tree=parse(md);
+  buildLayout(ctx,tree,0,PAL[0]);
+  placeNodes(tree,50,50);
+
+  let mx=0,my=0;
+  (function b(n){mx=Math.max(mx,n.ulx+n.nw);my=Math.max(my,n.uly+ULH);n.kids.forEach(b);})(tree);
+  bb={w:mx+60,h:my+60};
+
+  // auto fit & center
+  const sc=Math.min((CW-80)/bb.w,(CH-80)/bb.h,1.5);
+  vz=sc;vx=(CW-bb.w*vz)/2;vy=(CH-bb.h*vz)/2;
+
+  paint(ctx,dpr);
+}
+
+function paint(ctx,dpr){
+  if(!ctx){
+    const c=$('mm');if(!c||!tree)return;
+    const dpr2=window.devicePixelRatio||1;
+    ctx=c.getContext('2d');
+    ctx.setTransform(dpr2,0,0,dpr2,0,0);
+  }
+  ctx.clearRect(0,0,CW,CH);
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,CW,CH);
+  if(!tree)return;
+  ctx.save();
+  ctx.translate(vx,vy);ctx.scale(vz,vz);
+  drawTree(ctx,tree);
+  ctx.restore();
+}
+
+function repaint(){
+  const c=$('mm');if(!c)return;
+  const dpr=window.devicePixelRatio||1;
+  const ctx=c.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  paint(ctx,dpr);
+}
+
+function fit(){
+  if(!bb.w||!CW)return;
+  const sc=Math.min((CW-80)/bb.w,(CH-80)/bb.h,1.5);
+  vz=sc;vx=(CW-bb.w*vz)/2;vy=(CH-bb.h*vz)/2;repaint();
+}
+function doZoom(f){
+  const cx=CW/2,cy=CH/2,nz=Math.min(Math.max(vz*f,.08),8);
+  vx=cx-(cx-vx)*(nz/vz);vy=cy-(cy-vy)*(nz/vz);vz=nz;repaint();
+}
+
+// ── Pan & wheel ────────────────────────────────────────────
+const W=$('wrap');
+let dg=false,dx=0,dy=0;
+W.addEventListener('mousedown',e=>{if(e.button)return;dg=true;dx=e.clientX-vx;dy=e.clientY-vy;W.classList.add('dragging');});
+document.addEventListener('mousemove',e=>{if(!dg)return;vx=e.clientX-dx;vy=e.clientY-dy;repaint();});
+document.addEventListener('mouseup',()=>{dg=false;W.classList.remove('dragging');});
+W.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const r=W.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
+  const f=e.deltaY<0?1.12:1/1.12,nz=Math.min(Math.max(vz*f,.08),8);
+  vx=mx-(mx-vx)*(nz/vz);vy=my-(my-vy)*(nz/vz);vz=nz;repaint();
+},{passive:false});
+
+new ResizeObserver(()=>{if(ed.value.trim())go();}).observe(W);
+
+// ── Save PNG ───────────────────────────────────────────────
+function saveImg(){
+  if(!tree){tip('请先生成思维导图');return;}
+  const DPR=2,W2=Math.ceil(bb.w),H2=Math.ceil(bb.h);
+  const oc=document.createElement('canvas');
+  oc.width=W2*DPR;oc.height=H2*DPR;
+  const ctx=oc.getContext('2d');
+  ctx.scale(DPR,DPR);
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,W2,H2);
+  const t2=parse(ed.value.trim());
+  buildLayout(ctx,t2,0,PAL[0]);
+  placeNodes(t2,50,50);
+  drawTree(ctx,t2);
+  oc.toBlob(b=>{
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(b);
+    a.download='mindmark-'+Date.now()+'.png';
+    a.click();tip('已保存 PNG ✓');
+  },'image/png');
+}
+
+// ── Divider resize ─────────────────────────────────────────
+const dv=$('divider'),ep=$('ep');
+let rz=false;
+dv.addEventListener('mousedown',()=>{rz=true;dv.classList.add('on');document.body.style.cssText='cursor:col-resize;user-select:none';});
+document.addEventListener('mousemove',e=>{
+  if(!rz)return;
+  const r=document.querySelector('.main').getBoundingClientRect(),w=e.clientX-r.left;
+  if(w>180&&w<r.width-180)ep.style.width=w+'px';
+});
+document.addEventListener('mouseup',()=>{rz=false;dv.classList.remove('on');document.body.style.cssText='';});
+
+// ── Toast ──────────────────────────────────────────────────
+let ttm;
+function tip(m){const el=$('toast');el.textContent=m;el.classList.add('on');clearTimeout(ttm);ttm=setTimeout(()=>el.classList.remove('on'),2000);}
+
+// ── Init ───────────────────────────────────────────────────
+(function(){
+  const lid=localStorage.getItem(CK);
+  if(lid){const d=db.get()[lid];if(d){curId=lid;ed.value=d.content;}}
+  stats();
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{if(ed.value.trim())render();}));
+})();
+</script>
+</body>
+</html>
